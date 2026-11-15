@@ -25,6 +25,8 @@
             probe: [2, 3]
     methods: []
 
+У метода с ``variadic=True`` вместо ``parameters`` пишется ``variadic: true``.
+
 Загрузить описание можно в конфигураторе (команда «Загрузка описания»
 в меню папки «Методы», флажок «Проверить методы» включает пробный вызов)
 или запросом ``POST /v1/methods/description``.
@@ -97,6 +99,7 @@ class MethodSpec:
     probe: tuple[Any, ...] | None
     folder: str | None
     folder_description: str
+    variadic: bool = False
 
 
 def normalize_type(value: str) -> str:
@@ -172,6 +175,10 @@ def _method_row(spec: MethodSpec) -> dict[str, Any]:
     }
     if parameters:
         result["parameters"] = parameters
+    if spec.variadic:
+        # Загрузчик платформы пока не читает этот флаг: после загрузки его включают
+        # в конфигураторе («Произвольные параметры») или через PUT /v1/methods/.
+        result["variadic"] = True
     if spec.probe is not None:
         result["probe"] = list(spec.probe)
     return result

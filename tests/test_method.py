@@ -107,6 +107,27 @@ def test_run_refuses_to_start_without_an_address(monkeypatch):
     assert os.environ.get("amqp_url") is None
 
 
+def test_variadic_method_has_no_parameter_list():
+    @method("acme.test.variadic", variadic=True, probe=(1, 2))
+    def many(*args):
+        return len(args)
+
+    loaded = yaml.safe_load(description_yaml())
+    spec = next(item for item in loaded["methods"] if item["address"] == "acme.test.variadic")
+    assert spec["variadic"] is True
+    assert "parameters" not in spec
+    assert asyncio.run(registry["acme.test.variadic"](1, 2, 3)) == 3
+    with pytest.raises(ValueError, match="variadic"):
+        method("acme.test.variadic_bad", variadic=True, parameters=(param("a"),))
+
+
+def test_main_prints_description_with_yaml_flag(capsys):
+    from prs_methods import main
+
+    main(["--yaml"])
+    assert "acme.test.sum" in capsys.readouterr().out
+
+
 def test_unknown_parameter_type_is_rejected():
     # Ошибка типа возникает при объявлении, до записи адреса в реестр.
     with pytest.raises(ValueError, match="Неизвестный тип"):

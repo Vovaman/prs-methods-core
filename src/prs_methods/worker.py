@@ -1,7 +1,7 @@
 """Исполнитель: процесс, который принимает вызовы методов от платформы.
 
 Платформа не запускает код метода сама. Нужно запустить исполнитель —
-файл с методами, в конце которого вызывается ``run()``::
+файл с методами, в конце которого вызывается ``main()`` или ``run()``::
 
     amqp_url=amqp://пользователь:пароль@сервер/ python my_methods.py
 
@@ -20,7 +20,7 @@ import os
 import sys
 
 from prs_methods.errors import MethodError, fail
-from prs_methods.method import registry
+from prs_methods.method import description_yaml, registry
 
 
 def broker_url(explicit: str | None = None) -> str:
@@ -33,6 +33,22 @@ def broker_url(explicit: str | None = None) -> str:
     if not url:
         fail("Не задан адрес RabbitMQ. Укажите переменную окружения amqp_url.")
     return url
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Точка входа файла с методами: ``python my_methods.py [--yaml]``.
+
+    С ключом ``--yaml`` печатает описание методов для каталога платформы,
+    без ключа запускает исполнитель (``run``). Вызывайте в конце файла::
+
+        if __name__ == "__main__":
+            main()
+    """
+    args = sys.argv[1:] if argv is None else argv
+    if "--yaml" in args:
+        print(description_yaml(), end="")
+        return
+    run()
 
 
 def run(amqp_url: str | None = None, *, workers: int = 4) -> None:

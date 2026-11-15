@@ -39,13 +39,14 @@ def method(
     cn: str | None = None,
     description: str = "",
     parameters: tuple[Parameter, ...] | list[Parameter] = (),
+    variadic: bool = False,
     probe: tuple[Any, ...] | list[Any] | None = None,
     folder: str | None = None,
     folder_description: str = "",
 ) -> Callable:
     """Объявить функцию методом платформы.
 
-    Пример::
+    Метод с фиксированным списком параметров::
 
         @method(
             "acme.energy.sum",
@@ -56,6 +57,12 @@ def method(
         )
         def sum_energy(a, b):
             return number(a) + number(b)
+
+    Метод с произвольным числом параметров::
+
+        @method("acme.energy.total", variadic=True, probe=(1, 2, 3))
+        def total(*args):
+            return sum(number(arg) for arg in args)
 
     Обязателен только ``address``. Остальные аргументы нужны, чтобы
     загрузить метод в каталог платформы (см. ``description_yaml``).
@@ -68,22 +75,28 @@ def method(
         cn: название метода в каталоге. По умолчанию — имя функции.
         description: описание для каталога. По умолчанию — docstring функции.
         parameters: параметры метода, по одному ``param(...)`` на каждый
-            аргумент функции, в том же порядке. Используются только для
-            каталога: при вызове SDK аргументы не проверяет.
+            аргумент функции, в том же порядке. Платформа сверяет с этим
+            списком число параметров у каждой ссылки на метод.
+        variadic: ``True`` — число параметров задаёт каждая ссылка на метод
+            сама, а ``parameters`` не указываются. Функция принимает ``*args``.
         probe: аргументы пробного вызова, который платформа делает после
             загрузки описания, например ``(2, 3)``. Если не задано,
-            платформа подставит значения по типам параметров.
+            платформа подставит значения по типам параметров, а методу
+            с ``variadic=True`` не передаст ни одного аргумента.
         folder: папка внутри каталога «Методы». Без неё метод попадёт в корень.
         folder_description: описание папки. Достаточно указать у одного метода.
 
     Ошибки:
-        ValueError: пустой адрес или неизвестный тип параметра.
+        ValueError: пустой адрес, неизвестный тип параметра или
+            ``parameters`` вместе с ``variadic=True``.
         RuntimeError: метод с таким адресом уже объявлен в этом процессе.
     """
     call_address = str(address).strip()
     if not call_address:
         raise ValueError("Адрес метода пуст.")
     declared = tuple(parameters)
+    if variadic and declared:
+        raise ValueError("У метода с variadic=True список parameters не задаётся.")
 
     def decorate(func: Callable) -> Callable:
         text = description.strip() or inspect.getdoc(func) or ""
@@ -94,6 +107,7 @@ def method(
             cn=(cn or func.__name__).strip() or func.__name__,
             description=text,
             parameters=declared,
+            variadic=bool(variadic),
             probe=None if probe is None else tuple(probe),
             folder=folder.strip() if isinstance(folder, str) and folder.strip() else None,
             folder_description=folder_description.strip(),
